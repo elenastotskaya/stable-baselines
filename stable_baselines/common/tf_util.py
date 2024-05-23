@@ -572,14 +572,14 @@ def load_variables(load_path, variables=None, sess=None):
 
 
 def load_state(fname, sess=None):
-    from baselines import logger
+    from stable_baselines import logger
     logger.warn('load_state method is deprecated, please use load_variables instead')
     sess = sess or get_session()
     saver = tf.compat.v1.train.Saver()
     saver.restore(tf.compat.v1.get_default_session(), fname)
 
 def save_state(fname, sess=None):
-    from baselines import logger
+    from stable_baselines import logger
     logger.warn('save_state method is deprecated, please use save_variables instead')
     sess = sess or get_session()
     dirname = os.path.dirname(fname)
