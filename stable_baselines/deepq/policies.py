@@ -2,7 +2,7 @@ import tensorflow as tf
 #import tensorflow.contrib.layers as tf_layers
 import tensorflow.compat.v1.layers as tf_layers
 import numpy as np
-from gym.spaces import Discrete
+from gymnasium.spaces import Discrete
 
 from stable_baselines.common.policies import BasePolicy, nature_cnn, register_policy
 
