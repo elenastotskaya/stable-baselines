@@ -176,6 +176,12 @@ def q_explained_variance(q_pred, q_true):
 # Global session
 # ================================================================
 
+def get_session(config=None):
+    """Get default session or create one with a given config"""
+    sess = tf.compat.v1.get_default_session()
+    if sess is None:
+        sess = make_session(config=config, make_default=True)
+    return sess
 
 def make_session(num_cpu=None, make_default=False, graph=None):
     """
@@ -188,16 +194,19 @@ def make_session(num_cpu=None, make_default=False, graph=None):
     """
     if num_cpu is None:
         num_cpu = int(os.getenv('RCALL_NUM_CPU', multiprocessing.cpu_count()))
-    tf_config = tf.ConfigProto(
+    #tf_config = tf.ConfigProto(
+    tf_config = tf.compat.v1.ConfigProto(
         allow_soft_placement=True,
         inter_op_parallelism_threads=num_cpu,
         intra_op_parallelism_threads=num_cpu)
     # Prevent tensorflow from taking all the gpu memory
     tf_config.gpu_options.allow_growth = True
     if make_default:
-        return tf.InteractiveSession(config=tf_config, graph=graph)
+        #return tf.InteractiveSession(config=tf_config, graph=graph)
+        return tf.compat.v1.InteractiveSession(config=tf_config, graph=graph)
     else:
-        return tf.Session(config=tf_config, graph=graph)
+        #return tf.Session(config=tf_config, graph=graph)
+        return tf.compat.v1.Session(config=tf_config, graph=graph)
 
 
 def single_threaded_session(make_default=False, graph=None):
@@ -237,9 +246,9 @@ def initialize(sess=None):
     :param sess: (TensorFlow Session)
     """
     if sess is None:
-        sess = tf.get_default_session()
-    new_variables = set(tf.global_variables()) - ALREADY_INITIALIZED
-    sess.run(tf.variables_initializer(new_variables))
+        sess = tf.compat.v1.get_default_session()
+    new_variables = set(tf.compat.v1.global_variables()) - ALREADY_INITIALIZED
+    sess.run(tf.compat.v1.variables_initializer(new_variables))
     ALREADY_INITIALIZED.update(new_variables)
 
 
@@ -319,7 +328,7 @@ class _Function(object):
     def __call__(self, *args, sess=None, **kwargs):
         assert len(args) <= len(self.inputs), "Too many arguments provided"
         if sess is None:
-            sess = tf.get_default_session()
+            sess = tf.compat.v1.get_default_session()
         feed_dict = {}
         # Update the args
         for inpt, value in zip(self.inputs, args):
@@ -399,19 +408,19 @@ class SetFromFlat(object):
         shapes = list(map(var_shape, var_list))
         total_size = np.sum([intprod(shape) for shape in shapes])
 
-        self.theta = theta = tf.placeholder(dtype, [total_size])
+        self.theta = theta = tf.compat.v1.placeholder(dtype, [total_size])
         start = 0
         assigns = []
         for (shape, _var) in zip(shapes, var_list):
             size = intprod(shape)
-            assigns.append(tf.assign(_var, tf.reshape(theta[start:start + size], shape)))
+            assigns.append(tf.compat.v1.assign(_var, tf.reshape(theta[start:start + size], shape)))
             start += size
         self.operation = tf.group(*assigns)
         self.sess = sess
 
     def __call__(self, theta):
         if self.sess is None:
-            return tf.get_default_session().run(self.operation, feed_dict={self.theta: theta})
+            return tf.compat.v1.get_default_session().run(self.operation, feed_dict={self.theta: theta})
         else:
             return self.sess.run(self.operation, feed_dict={self.theta: theta})
 
@@ -429,7 +438,7 @@ class GetFlat(object):
 
     def __call__(self):
         if self.sess is None:
-            return tf.get_default_session().run(self.operation)
+            return tf.compat.v1.get_default_session().run(self.operation)
         else:
             return self.sess.run(self.operation)
 
@@ -446,7 +455,7 @@ def get_trainable_vars(name):
     :param name: (str) the scope
     :return: ([TensorFlow Variable])
     """
-    return tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=name)
+    return tf.compat.v1.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=name)
 
 
 def get_globals_vars(name):
@@ -456,7 +465,7 @@ def get_globals_vars(name):
     :param name: (str) the scope
     :return: ([TensorFlow Variable])
     """
-    return tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=name)
+    return tf.compat.v1.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=name)
 
 
 def outer_scope_getter(scope, new_scope=""):
@@ -508,3 +517,73 @@ def total_episode_reward_logger(rew_acc, rewards, masks, writer, steps):
                 rew_acc[env_idx] = sum(rewards[env_idx, dones_idx[-1, 0]:])
 
     return rew_acc
+
+
+# =============================================================
+# TF placeholders management
+# ============================================================
+
+_PLACEHOLDER_CACHE = {}  # name -> (placeholder, dtype, shape)
+
+def get_placeholder(name, dtype, shape):
+    if name in _PLACEHOLDER_CACHE:
+        out, dtype1, shape1 = _PLACEHOLDER_CACHE[name]
+        if out.graph == tf.compat.v1.get_default_graph():
+            assert dtype1 == dtype and shape1 == shape, \
+                'Placeholder with name {} has already been registered and has shape {}, different from requested {}'.format(name, shape1, shape)
+            return out
+
+    out = tf.compat.v1.placeholder(dtype=dtype, shape=shape, name=name)
+    _PLACEHOLDER_CACHE[name] = (out, dtype, shape)
+    return out
+
+def get_placeholder_cached(name):
+    return _PLACEHOLDER_CACHE[name][0]
+
+
+def save_variables(save_path, variables=None, sess=None):
+    import joblib
+    sess = sess or get_session()
+    variables = variables or tf.compat.v1.get_collection(tf.compat.v1.GraphKeys.GLOBAL_VARIABLES)
+
+    ps = sess.run(variables)
+    save_dict = {v.name: value for v, value in zip(variables, ps)}
+    dirname = os.path.dirname(save_path)
+    if any(dirname):
+        os.makedirs(dirname, exist_ok=True)
+    joblib.dump(save_dict, save_path)
+
+def load_variables(load_path, variables=None, sess=None):
+    import joblib
+    sess = sess or get_session()
+    variables = variables or tf.compat.v1.get_collection(tf.compat.v1.GraphKeys.GLOBAL_VARIABLES)
+
+    loaded_params = joblib.load(os.path.expanduser(load_path))
+    restores = []
+    if isinstance(loaded_params, list):
+        assert len(loaded_params) == len(variables), 'number of variables loaded mismatches len(variables)'
+        for d, v in zip(loaded_params, variables):
+            restores.append(v.assign(d))
+    else:
+        for v in variables:
+            restores.append(v.assign(loaded_params[v.name]))
+
+    sess.run(restores)
+
+
+def load_state(fname, sess=None):
+    from baselines import logger
+    logger.warn('load_state method is deprecated, please use load_variables instead')
+    sess = sess or get_session()
+    saver = tf.compat.v1.train.Saver()
+    saver.restore(tf.compat.v1.get_default_session(), fname)
+
+def save_state(fname, sess=None):
+    from baselines import logger
+    logger.warn('save_state method is deprecated, please use save_variables instead')
+    sess = sess or get_session()
+    dirname = os.path.dirname(fname)
+    if any(dirname):
+        os.makedirs(dirname, exist_ok=True)
+    saver = tf.compat.v1.train.Saver()
+    saver.save(tf.compat.v1.get_default_session(), fname)

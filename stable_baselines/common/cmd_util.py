@@ -5,7 +5,8 @@ Helpers for scripts like run_atari.py.
 import os
 import warnings
 
-import gym
+#import gym
+import gymnasium as gym
 
 from stable_baselines import logger
 from stable_baselines.bench import Monitor

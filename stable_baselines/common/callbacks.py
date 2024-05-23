@@ -4,7 +4,8 @@ import warnings
 import typing
 from typing import Union, List, Dict, Any, Optional
 
-import gym
+#import gym
+import gymnasium as gym
 import numpy as np
 
 from stable_baselines.common.vec_env import VecEnv, sync_envs_normalization, DummyVecEnv
@@ -251,8 +252,8 @@ class EvalCallback(EventCallback):
                  callback_on_new_best: Optional[BaseCallback] = None,
                  n_eval_episodes: int = 5,
                  eval_freq: int = 10000,
-                 log_path: Optional[str] = None,
-                 best_model_save_path: Optional[str] = None,
+                 log_path: str = None,
+                 best_model_save_path: str = None,
                  deterministic: bool = True,
                  render: bool = False,
                  verbose: int = 1):

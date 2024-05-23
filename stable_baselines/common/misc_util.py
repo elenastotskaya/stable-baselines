@@ -1,6 +1,7 @@
 import random
 
-import gym
+#import gym
+import gymnasium as gym
 import numpy as np
 import tensorflow as tf
 
@@ -23,7 +24,8 @@ def set_global_seeds(seed):
 
     :param seed: (int) the seed
     """
-    tf.set_random_seed(seed)
+    #tf.set_random_seed(seed)
+    tf.compat.v1.set_random_seed(seed)
     np.random.seed(seed)
     random.seed(seed)
     # prng was removed in latest gym version

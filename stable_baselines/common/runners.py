@@ -2,7 +2,8 @@ from abc import ABC, abstractmethod
 import typing
 from typing import Union, Optional, Any
 
-import gym
+#import gym
+import gymnasium as gym
 import numpy as np
 
 from stable_baselines.common.callbacks import BaseCallback

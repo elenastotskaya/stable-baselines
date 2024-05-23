@@ -1,7 +1,8 @@
 import warnings
 from typing import Union
 
-import gym
+#import gym
+import gymnasium as gym
 from gym import spaces
 import numpy as np
 

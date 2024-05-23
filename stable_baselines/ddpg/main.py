@@ -2,7 +2,8 @@ import argparse
 import time
 import os
 
-import gym
+#import gym
+import gymnasium as gym
 import tensorflow as tf
 import numpy as np
 from mpi4py import MPI
