@@ -3,7 +3,7 @@ from typing import Union
 
 #import gym
 import gymnasium as gym
-from gym import spaces
+from gymnasium import spaces
 import numpy as np
 
 from stable_baselines.common.vec_env import DummyVecEnv, VecCheckNan
